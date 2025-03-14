@@ -28,6 +28,5 @@ The R script (`exploration_data.R`) processes and analyzes biological and enviro
 ### RF
 
 - The processed data will be used for machine learning analysis with XGBoost in `RF.py`.
-- Further refinement and feature engineering may be necessary before training the model.
 
 ---
