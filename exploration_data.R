@@ -5,7 +5,7 @@ library(dplyr)
 library(openxlsx)
 library(tidyverse)
 library(gridExtra)
-
+library(corrplot)
 
 rm(list=ls()) 
 graphics.off() 
@@ -19,10 +19,10 @@ setwd("/Users/renaudsrr/Desktop/STAGE_MTL/Scripts/Data")
 
 # phyto (genus)  ---------------------------------------------------------------------------
 
-data_phyto_raw = read.csv("data_phyto_genus.csv",sep=";",h=T,dec=",")
-data_phyto = read.csv("data_phyto_genus.csv",sep=";",h=F,dec=",") # creation data_phyto pour plus de lisibilite
+data_phyto_raw = read.csv("CARBBAS/data_phyto_genus.csv",sep=";",h=T,dec=",")
+data_phyto = read.csv("CARBBAS/data_phyto_genus.csv",sep=";",h=F,dec=",") # creation data_phyto pour plus de lisibilite
 data_phyto = data_phyto[-c(1,3),-1]
-data_phyto[1,1] = "Lakes"
+data_phyto[1,1] = "Sample"
 colnames(data_phyto) = as.character(unlist(data_phyto[1,]))
 data_phyto = data_phyto[-1,] 
 
@@ -34,42 +34,66 @@ data_phyto[, -1] = lapply(data_phyto[, -1], function(x) { # forcer conversion ",
 biomass_tot = rowSums(data_phyto[,-1]) 
 summary_data_phyto = data_phyto %>%
   mutate("biomass_tot" = biomass_tot) %>% 
-  select(Lakes, biomass_tot)
+  select(Sample, biomass_tot)
 
 # calcul richesse spé
 summary_data_phyto = summary_data_phyto %>%
-  mutate(rich_spe = rowSums(ifelse(data_phyto[,-1]!= 0,1,0)))
+  mutate(rich_genus = rowSums(ifelse(data_phyto[,-1]!= 0,1,0)))
 
 # zoo (sps/genus) -----------------------------------------------------------------------------
 
-data_zoo  = read.csv('Data_zoo_sp.csv',sep=";",h=T, dec=",") 
+data_zoo  = read.csv('CARBBAS/data_zoo_sp.csv',sep=";",h=T, dec=",") 
 data_zoo = data_zoo %>% 
   select(-c("X","X.1","X.2")) %>%
-  rename(Lakes = ALL.LAKES..)
+  rename(Sample = ALL.LAKES..)
 
 # calcul somme biomass
 biomass_tot = rowSums(data_zoo[,-1]) 
 summary_data_zoo = data_zoo %>% 
   mutate("biomass_tot" = biomass_tot) %>% 
-  select(Lakes, biomass_tot) 
+  select(Sample, biomass_tot) 
 
 # calcul richesse spé
 summary_data_zoo = summary_data_zoo %>%
   mutate(rich_spe = rowSums(ifelse(data_zoo[,-1]!= 0,1,0))) %>% 
-  select(Lakes, biomass_tot,rich_spe, everything()) 
+  select(Sample, biomass_tot,rich_spe, everything()) 
 
 # env --------------------------------------------------------------------------------------------
 
-env = list("carbon_metabol" = read.xlsx("EnvData.xlsx", sheet=1),
-           "biol" = read.xlsx("EnvData.xlsx", sheet=2),
-           "phy" = read.xlsx("EnvData.xlsx", sheet=3),
-           "chim" = read.xlsx("EnvData.xlsx", sheet=4),
-           "GPP" = read.xlsx("EnvData.xlsx", sheet=5))
+env = list("carbon_metabol" = read.xlsx("CARBBAS/EnvData/EnvData.xlsx", sheet=1),
+           "biol" = read.xlsx("CARBBAS/EnvData/EnvData.xlsx", sheet=2),
+           "phy" = read.xlsx("CARBBAS/EnvData/EnvData.xlsx", sheet=3),
+           "chim" = read.xlsx("CARBBAS/EnvData/EnvData.xlsx", sheet=4),
+           "GPP" = read.xlsx("CARBBAS/EnvData/EnvData.xlsx", sheet=5))
+colnames(env$carbon_metabol)[6] = "Sample"
+colnames(env$phy)[5] = "Sample"
+colnames(env$chim)[5] = "Sample"
+
+env_modif  = env$carbon_metabol %>%
+  select(-c("region","lake","yr","doy")) %>%
+  right_join(env$biol,by=c("Sample")) %>% select(-c("region.x")) %>% rename("region"="region.y") %>%
+  select("Sample","region","lake","yr","doy",everything()) 
+env_modif = env$chim %>%
+  select(-c("region","lake","yr","doy")) %>%
+  left_join(env_modif,by=c("Sample")) %>%
+  select("Sample","region","lake","yr","doy",everything()) 
+env_modif = env$phy %>%
+  select(-c("region","lake","yr","doy")) %>%
+  left_join(env_modif,by=c("Sample")) %>%
+  select("Sample","region","lake","yr","doy",everything()) 
+env_modif = env_modif %>%
+  mutate("zmix/zmax"=zmix/zmax) %>%
+  mutate("type_prof"=ifelse(`zmix/zmax`<0.9,"stratifie","polymictique")) %>%
+  select(-c("pctdo","pctdo.cor")) %>% 
+  right_join(summary_data_zoo[,c(1:2)],by=c("Sample")) %>% 
+  rename("biomass_tot_zoo"="biomass_tot",
+        "r.ugcld"  = "r.ugcld.(bottle.R)")
+
 
 # Categorisation genus => Creation dataset info_genus_zoo for summary of all informations ---------
 
-names_phyto = read.csv("Names_phyto.csv",sep=";",h=T)
-plancton_strat = read.csv("NanoplanktonNutritionStrategies.csv",sep=";",h=T) %>% select(c(1:9),13)
+names_phyto = read.csv("Mixotroph_strat/Names_phyto.csv",sep=";",h=T)
+plancton_strat = read.csv("Mixotroph_strat/NanoplanktonNutritionStrategies.csv",sep=";",h=T) %>% select(c(1:9),13)
 
 old_strat_genus = data.frame(t(data_phyto_raw[1,-c(1,2)]),
                       t(data_phyto_raw[2,-c(1,2)])) 
@@ -86,9 +110,9 @@ info_genus_zoo = info_genus_zoo %>% right_join(plancton_strat, by="Genus") %>%
 ###########################################################################
 
 Shannon = function(data){
-  H = numeric(length(data$Lakes))
+  H = numeric(length(data$Sample))
   
-  for (lake in 1:length(data$Lakes)){
+  for (lake in 1:length(data$Sample)){
     sum_H = 0  
     
     for (genus in 2:ncol(data)){  # Boucle sur all genus
@@ -104,9 +128,9 @@ Shannon = function(data){
 }
 
 Simpson = function(data){
-  D = numeric(length(data$Lakes)) 
+  D = numeric(length(data$Sample)) 
   
-  for (lake in 1:length(data$Lakes)){
+  for (lake in 1:length(data$Sample)){
     sum_D = 0
     
     for (genus in 2:ncol(data)){  # Boucle sur all genus
@@ -126,11 +150,11 @@ all_mixo = info_genus_zoo$Abbreviation[!is.na(info_genus_zoo$Abbreviation) & inf
 length(all_mixo)
 
 calc_infos_mixo = function(data){
-  nb_mixo = numeric(length(data$Lakes))
-  biomass_tot_mixo = numeric(length(data$Lakes))
+  nb_mixo = numeric(length(data$Sample))
+  biomass_tot_mixo = numeric(length(data$Sample))
   Genus = colnames(data)[-1]  # all col genus
   
-  for (lake in 1:length(data$Lakes)){
+  for (lake in 1:length(data$Sample)){
     sum_mixo = 0
     biomass_mixo = 0
     
@@ -152,11 +176,11 @@ calc_infos_mixo = function(data){
 summary_data_phyto = summary_data_phyto %>%
   mutate(H = Shannon(data_phyto)) %>%
   mutate("1-D" = Simpson(data_phyto)) %>%
-  mutate(J = H/log(rich_spe)) %>% # ajout equitabilite Pielou
+  mutate(J = H/log(rich_genus)) %>% # ajout equitabilite Pielou
   mutate(nb_genus_mixo = calc_infos_mixo(data_phyto)[[1]]) %>% # nb mixotrophe
   mutate(biomass_mixo = calc_infos_mixo(data_phyto)[[2]]) %>% # biomass mixotrophe
   mutate(prev_Mixo = biomass_mixo/biomass_tot*100) %>%
-  select(Lakes, biomass_tot,biomass_mixo,rich_spe, nb_genus_mixo, H,"1-D", J, prev_Mixo)
+  select(Sample, biomass_tot,biomass_mixo,rich_genus, nb_genus_mixo, H,"1-D", J, prev_Mixo)
 
 index_mixo = which(colnames(data_phyto) %in% all_mixo) ; print(index_mixo)
 colnames(data_phyto[index_mixo]) # petite verif
@@ -167,22 +191,22 @@ colnames(data_phyto[index_mixo]) # petite verif
 
 # phyto (genus) : data_phyto -----------------------------------------------------------------
 
-gg1 = ggplot(data=summary_data_phyto,aes(x=Lakes))+
-  geom_col(aes(y=rich_spe),alpha=0.8)+
+gg1 = ggplot(data=summary_data_phyto,aes(x=Sample))+
+  geom_col(aes(y=rich_genus),alpha=0.8)+
   theme(axis.text.x = element_text(angle = 90))
-gg2 = ggplot(data=summary_data_phyto,aes(x=Lakes))+
+gg2 = ggplot(data=summary_data_phyto,aes(x=Sample))+
   geom_col(aes(y=biomass_tot),alpha=0.8,fill="grey")+
   theme(axis.text.x = element_text(angle = 90))
-gg3 = ggplot(summary_data_phyto,aes(x=Lakes))+
+gg3 = ggplot(summary_data_phyto,aes(x=Sample))+
   geom_col(aes(y=prev_Mixo),alpha=0.7)
 grid.arrange(gg1,gg2,gg3,ncol=2,nrow=2)
 
 # zoo (sps/genus) : data_zoo -----------------------------------------------------------------
 
-gg1 = ggplot(data=summary_data_zoo,aes(x=Lakes))+
+gg1 = ggplot(data=summary_data_zoo,aes(x=Sample))+
   geom_col(aes(y=rich_spe),alpha=0.8)+
   theme(axis.text.x = element_text(angle = 90))
-gg2 = ggplot(data=summary_data_zoo,aes(x=Lakes))+
+gg2 = ggplot(data=summary_data_zoo,aes(x=Sample))+
   geom_col(aes(y=biomass_tot),alpha=0.8,fill="grey")+
   theme(axis.text.x = element_text(angle = 90))
 
@@ -190,6 +214,10 @@ grid.arrange(gg1,gg2,ncol=2)
 
 # env : env -----------------------------------------------------------------
 
+corrplot(cor(env$carbon_metabol[,7:10]))
+corrplot(cor(env$carbon_metabol[,8:10]))
+corrplot(cor(env$phy[,6:12]))
+corrplot(cor(env$GPP[,c(4:20,22,24:27)]))
 
 # Categorisation genus : info_genus_zoo -----------------------------------------------------------------
 
@@ -203,19 +231,19 @@ ggplot(data = info_genus_zoo[1:74,], aes(x=Classic.group.name, fill=Final_Nutrit
 # export CSV --------------------------------------------------------------
 ###########################################################################
 
-write.csv(data_phyto, "new_csv/data_phyto.csv", row.names=FALSE)
-write.csv(data_zoo, "new_csv/data_zoo.csv", row.names=FALSE)
-write.csv(summary_data_phyto, "new_csv/summary_data_phyto.csv", row.names=FALSE)
-write.csv(summary_data_zoo, "new_csv/summary_data_zoo.csv", row.names=FALSE)
-write.csv(info_genus_zoo, "new_csv/info_genus_zoo.csv", row.names=FALSE)
-
+write.csv(data_phyto, "new_csv/data_phyto.csv", row.names=F)
+write.csv(data_zoo, "new_csv/data_zoo.csv", row.names=F)
+write.csv(summary_data_phyto, "new_csv/summary_data_phyto.csv", row.names=F)
+write.csv(summary_data_zoo, "new_csv/summary_data_zoo.csv", row.names=F)
+write.csv(info_genus_zoo, "new_csv/info_genus_zoo.csv", row.names=F)
+write.csv(env_modif,"new_csv/env_modif.csv",row.names=F)
 
 ###########################################################################
 # QQ infos supp -----------------------------------------------------------
 ###########################################################################
 
-lakes_phyto = sort(unique(summary_data_phyto$Lakes))
-lakes_zoo = sort(unique(summary_data_zoo$Lakes))
+lakes_phyto = sort(unique(summary_data_phyto$Sample))
+lakes_zoo = sort(unique(summary_data_zoo$Sample))
 
 # 1 à 5 lakes env indentiques
 lakes_env1 = unique(env$carbon_metabol$Sample.code)
@@ -235,4 +263,5 @@ df_diff_lakes = data.frame(lakes_env = aligned_lakes_env,
                            lakes_phyto = aligned_lakes_phyto, 
                            lakes_zoo = aligned_lakes_zoo)
                            
+
 
