@@ -1,53 +1,44 @@
-# **Analysis of Biodiversity and Environmental Factors in Lakes**
+# **TITRE**
 
 ## **Scripts by SERRE Renaud**  
 **Internship UQAM-GRIL under the supervision of BEISNER Beatrix**
 
-This project explores the relationship between mixotrophic prevalence and phytoplankton diversity using ecological data from multiple lakes. The workflow consists of data processing in R and machine learning modeling in Python.
+This project studies the link between mixotrophic prevalence and phytoplankton diversity in lakes. The work includes data processing in R and machine learning modeling in Python.
 
 ---
 
 ## **1. Data Processing (`exploration_data_CARBBAS.R`)**
 
-This R script performs data extraction, cleaning, and computation of key biodiversity and environmental metrics.
+This R script cleans and prepares data on biodiversity and environmental factors.
 
-### **Main Features**  
-- **Data Import & Cleaning:** Loads raw datasets on phytoplankton, zooplankton, and environmental parameters, ensuring consistency across sources.
+### **Main Steps**  
+- **Data Import & Cleaning:** Loads and organizes data on phytoplankton, zooplankton, and the environment.
 - **Biological Metrics Calculation:**  
   - Computes total biomass for phytoplankton and zooplankton.  
-  - Estimates species richness and taxonomic classification.  
-  - Calculates diversity indices (Shannon, Simpson, Pielou’s evenness).  
-  - Assesses mixotrophic species abundance and biomass.  
-- **Environmental Data Integration:** Merges biological and environmental datasets for further analysis.
-- **Data Export:** Processed data is saved in the `new_csv/` folder for use in machine learning.
+  - Measures species richness & calculates diversity indices (Shannon, Simpson, and Pielou’s evenness).  
+  - Estimates mixotrophic species presence and biomass.  
+- **Environmental Data Integration:** Merges biological and environmental data.
+- **Data Export:** Saves processed data in the `new_csv/` folder for machine learning.
 
 ---
 
-## **2. Machine Learning Modeling (`ML.py`)**
+## **2. Machine Learning (`ML.py`)**
 
-This Python script builds predictive models to analyze the relationship between environmental variables and biodiversity metrics.
+This Python script builds models to study relation between prev_Mixo and parameter of diversity taking into account environement parameters.
 
-### **Key Components**  
-- **Data Preparation:** Loads and preprocesses cleaned data from `new_csv/`.
-- **Exploratory Analysis:** Visualizes relationships between mixotrophic prevalence and diversity indices.
-- **Feature Engineering & Normalization:** Handles missing values and applies standardization when needed.
+### **Main Steps**  
+- **Exploratory Analysis:** Plots relationships between mixotrophic prevalence and diversity.
+- **Feature Processing & Normalization:** Handles missing values and scales data if needed.
 - **Model Selection & Optimization:**  
-  - Implements **XGBoost** for regression analysis.  
-  - Compares multiple models with hyperparameter optimization using **RandomizedSearchCV** and **Optuna**.
+  - Uses **XGBoost** for regression.  
+  - Tunes hyperparameters with **RandomizedSearchCV** and **Optuna**.
 - **Model Evaluation:**  
-  - Computes **MSE, RMSE, MAE, and R²** scores.  
-  - Generates **SHAP** plots for feature importance analysis.  
-  - Examines residuals to assess model quality.
+  - Calculates metrics of evaluation scores.  
+  - Creates **SHAP** plots to show feature importance.  
+  - Analyzes model errors.
 - **Predictions & Visualizations:**  
-  - Plots relationships between observed and predicted values.  
-  - Compares performance of optimized models.
+  - Compares real vs. predicted values.  
+  - Evaluates model performance.
 
 ---
-
-## **Workflow Summary**
-1. **Data Cleaning & Metrics Calculation** (R) → Export to `new_csv/`
-2. **Exploratory Data Analysis** (Python)
-3. **Machine Learning Modeling & Optimization** (Python)
-4. **Model Interpretation & Evaluation**
-
-This structured approach allows for a robust assessment of the factors influencing phytoplankton diversity and mixotrophic prevalence in lake ecosystems.
+This work helps understand how mixotrophic prevalence affect phytoplankton diversity in lakes.
