@@ -69,28 +69,28 @@ colnames(env$carbon_metabol)[6] = "Sample"
 colnames(env$phy)[5] = "Sample"
 colnames(env$chim)[5] = "Sample"
 
-env_modif  = env$carbon_metabol %>%
+VA_expl  = env$carbon_metabol %>%
   select(-c("region","lake","yr","doy")) %>%
   right_join(env$biol,by=c("Sample")) %>% select(-c("region.x")) %>% rename("region"="region.y") %>%
   select("Sample","region","lake","yr","doy",everything()) 
-env_modif = env$chim %>%
+VA_expl = env$chim %>%
   select(-c("region","lake","yr","doy")) %>%
-  left_join(env_modif,by=c("Sample")) %>%
+  left_join(VA_expl,by=c("Sample")) %>%
   select("Sample","region","lake","yr","doy",everything()) 
-env_modif = env$phy %>%
+VA_expl = env$phy %>%
   select(-c("region","lake","yr","doy")) %>%
-  left_join(env_modif,by=c("Sample")) %>%
+  left_join(VA_expl,by=c("Sample")) %>%
   select("Sample","region","lake","yr","doy",everything()) 
-env_modif = env_modif %>%
+VA_expl = VA_expl %>%
   mutate("zmix/zmax"=zmix/zmax) %>%
   mutate("type_prof"=ifelse(`zmix/zmax`<0.9,"stratifie","polymictique")) %>%
   select(-c("pctdo","pctdo.cor")) %>% 
   full_join(summary_data_zoo[,c(1:2)],by=c("Sample")) %>% 
   rename("biomass_tot_zoo"="biomass_tot",
         "r.ugcld"  = "r.ugcld.(bottle.R)")
-env_modif = env_modif[c(1:69),]
+VA_expl = VA_expl[c(1:69),]
 
-# setdiff(summary_data_phyto$Sample,env_modif$Sample)
+# setdiff(summary_data_phyto$Sample,VA_expl$Sample)
 
  # Categorisation genus => Creation dataset info_genus_zoo for summary of all informations ---------
 
@@ -229,24 +229,35 @@ ggplot(data = info_genus_zoo[1:74,], aes(x=Classic.group.name, fill=Final_Nutrit
   labs(x="Taxon", y="nombre d'espèces dans jeu de donnée", fill="Strategy")+
   theme(axis.text.x = element_text(angle = 45,hjust=1))
 
-# relation entre preMixo et diversité
-
-plot(x = summary_data_phyto$prev_Mixo, y = summary_data_phyto$rich_genus)
-plot(x = summary_data_phyto$prev_Mixo, y = summary_data_phyto$H)
-plot(x = summary_data_phyto$prev_Mixo, y = summary_data_phyto$`1-D`)
-plot(x = summary_data_phyto$prev_Mixo, y = summary_data_phyto$J)
-# tendance logistique puis décroissante ?
-
 ###########################################################################
 # export CSV --------------------------------------------------------------
 ###########################################################################
+
+VA_expl = VA_expl %>%
+  left_join(summary_data_phyto[,c(1,9)],by="Sample")
+VA_expl = VA_expl[match(summary_data_phyto$Sample, VA_expl$Sample), ]
 
 write.csv(data_phyto, "new_csv/data_phyto.csv", row.names=F)
 write.csv(data_zoo, "new_csv/data_zoo.csv", row.names=F)
 write.csv(summary_data_phyto, "new_csv/summary_data_phyto.csv", row.names=F)
 write.csv(summary_data_zoo, "new_csv/summary_data_zoo.csv", row.names=F)
 write.csv(info_genus_zoo, "new_csv/info_genus_zoo.csv", row.names=F)
-write.csv(env_modif,"new_csv/env_modif.csv",row.names=F)
+write.csv(VA_expl,"new_csv/VA_expl.csv",row.names=F)
+
+###########################################################################
+# verification --------------------------------------------------------------
+###########################################################################
+# relation entre preMixo et diversité
+
+plot(x = summary_data_phyto$prev_Mixo, y = summary_data_phyto$rich_genus)
+plot(x = VA_expl$prev_Mixo, y = summary_data_phyto$rich_genus,col="red")
+
+plot(x = summary_data_phyto$prev_Mixo, y = summary_data_phyto$H)
+plot(x = summary_data_phyto$prev_Mixo, y = summary_data_phyto$`1-D`)
+plot(x = summary_data_phyto$prev_Mixo, y = summary_data_phyto$J)
+# tendance logistique puis décroissante ?
+
+
 
 ###########################################################################
 # QQ infos supp -----------------------------------------------------------
