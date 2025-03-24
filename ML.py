@@ -40,6 +40,8 @@ from sklearn.preprocessing import StandardScaler
 # =======================================================================================================================
 
 # Choix de paramétrage de modélisation
+choix_dataset = input("(Vide = LN) // Choix dataset utilisé : (LN/C)") or "LN"
+
 compare_model = input("(Vide = N) // Comparaison 3 model ? (Y/N)") or "N"
 
 if compare_model =="Y":
@@ -53,10 +55,8 @@ if compare_model =="Y":
 
 choix_div = input("(Vide = H) // Choix indice de diversite ? (rich_genus, H, 1-D, J) ") or "H"
 
-suppr_ind_influents = input("(Vide = N) // Supprimer individus trop influents ? (Y/N) ")
-
 # % données utilisées pour X_test et y_test
-test_size = 0.1
+test_size = 0.2
 
 print("\n")
 
@@ -64,15 +64,19 @@ print("\n")
 # Data
 # =============================================================================
 
-data_python = pd.read_csv("Data/new_csv/data_python.csv",index_col=0)
-VA_expl = data_python.drop(columns=["region","lake","type_prof","rich_genus","H","1-D","J"])
+if choix_dataset == "C":
+    data_python = pd.read_csv("Data/new_csv/data_python/data_python_CARBBAS.csv",index_col=0)
+    VA_expl = data_python.drop(columns=["region","lake","type_prof","rich_genus","H","1-D","J"])
 
-# Traitement des NaN (Provisioire) ============================================
+    # Traitement des NaN (Provisioire) ============================================
 
-VA_expl["biomass_tot_zoo"] = VA_expl["biomass_tot_zoo"].fillna(VA_expl["biomass_tot_zoo"].median())
-VA_expl["sech.m"] = VA_expl["sech.m"].fillna(VA_expl["sech.m"].median())
+    VA_expl["biomass_tot_zoo"] = VA_expl["biomass_tot_zoo"].fillna(VA_expl["biomass_tot_zoo"].median())
+    VA_expl["sech.m"] = VA_expl["sech.m"].fillna(VA_expl["sech.m"].median())
 
-VA_expl.to_csv("Data/new_csv/VA_expl_python.csv")
+    VA_expl.to_csv("Data/new_csv/data_python/VA_expl_python.csv")
+else:
+    data_python = pd.read_csv("Data/new_csv/data_python/data_python_LP_NLA.csv",index_col=1)
+    VA_expl = data_python.drop(columns=["Survey","Stratification","Ecoregion","nb_genus_mixo","rich_genus","H","1-D","J"])
 
 # =============================================================================
 # Extraction data pour ML
@@ -84,26 +88,6 @@ X_train, X_test, y_train, y_test = train_test_split(VA_expl, y, test_size=test_s
 
 print("var train : ", np.var(y_train), " // var test : ", np.var(y_test))
 print("\n")
-# =============================================================================
-# Supprimer individus trop influents
-# =============================================================================
-
-if suppr_ind_influents == "Y":
-    X_train_const = sm.add_constant(X_train)
-    model = sm.OLS(y_train, X_train_const).fit()
-
-    # Calcul des distances de Cook
-    influence = model.get_influence()
-    cooks_d = influence.cooks_distance[0]
-
-    n = len(X_train)
-    threshold = 4 / n  # Seuil couramment utilisé
-
-    influential_points = np.where(cooks_d > threshold)[0]
-    influential_indices = X_train.index[influential_points]
-    print("sample influents : ", list(influential_indices))
-    X_train = X_train.drop(index=influential_indices)
-    y_train = y_train.drop(index=influential_indices)
 
 # =============================================================================
 # Exploration data
@@ -117,7 +101,6 @@ plt.scatter(X_test["prev_Mixo"],y_test,color="green",alpha=0.3,label="test")
 plt.legend()
 plt.tight_layout()
 plt.show()
-
 
 # =============================================================================
 # Optimisation hyperparamètres
@@ -175,7 +158,7 @@ if compare_model == "Y" and refaire_optimisation == "Y":
     ordre_hyperparams = ["learning_rate", "max_depth", "n_estimators", "colsample_bytree", "subsample", "reg_alpha", "reg_lambda", "gamma"]
     all_optimisation = all_optimisation.reindex(ordre_hyperparams)
 
-    all_optimisation.to_csv(f"Data/new_csv/all_optimisation_{choix_div}.csv")
+    all_optimisation.to_csv(f"Data/new_csv/optimisation_hyperparms_CARBBAS/all_optimisation_{choix_div}.csv")
 
     print("\n")
     print(f"Optimisation hyperparams pour y = {choix_div}")
@@ -196,7 +179,7 @@ xgb_model_1 = xgb.XGBRegressor(
 
     # learning_rate = 0.1,    # Taux d'apprentissage (plus bas = apprentissage lent mais meilleure généralisation, "shrinkage")
     # max_depth = 15,           # Profondeur max des arbres (plus élevé = plus de complexité et risque d'overfitting)
-    n_estimators = 500000,      # Nombre total d'arbres dans l'ensemble (plus élevé = modèle plus complexe et plus lent)
+    n_estimators = 1000,      # Nombre total d'arbres dans l'ensemble (plus élevé = modèle plus complexe et plus lent)
 
     colsample_bytree = 0.8,   # Proportion des colonnes (features) utilisées pour chaque arbre (ex: 80% des variables)
     # subsample = 0.8,          # Proportion des échantillons (lignes) utilisées pour chaque arbre (ex: 80% des lignes) 
@@ -228,7 +211,7 @@ if compare_model=="N":
 if compare_model =="Y": 
 
     if refaire_optimisation =="N": 
-        all_optimisation = pd.read_csv(f"Data/new_csv/all_optimisation_{choix_div}.csv",index_col=0)
+        all_optimisation = pd.read_csv(f"Data/new_csv/optimisation_hyperparms_CARBBAS/all_optimisation_{choix_div}.csv",index_col=0)
 
     xgb_model_2 = xgb.XGBRegressor(
         random_state = 42,        
