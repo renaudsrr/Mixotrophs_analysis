@@ -69,28 +69,28 @@ colnames(env$carbon_metabol)[6] = "Sample"
 colnames(env$phy)[5] = "Sample"
 colnames(env$chim)[5] = "Sample"
 
-VA_expl  = env$carbon_metabol %>%
+data_python  = env$carbon_metabol %>%
   select(-c("region","lake","yr","doy")) %>%
   right_join(env$biol,by=c("Sample")) %>% select(-c("region.x")) %>% rename("region"="region.y") %>%
   select("Sample","region","lake","yr","doy",everything()) 
-VA_expl = env$chim %>%
+data_python = env$chim %>%
   select(-c("region","lake","yr","doy")) %>%
-  left_join(VA_expl,by=c("Sample")) %>%
+  left_join(data_python,by=c("Sample")) %>%
   select("Sample","region","lake","yr","doy",everything()) 
-VA_expl = env$phy %>%
+data_python = env$phy %>%
   select(-c("region","lake","yr","doy")) %>%
-  left_join(VA_expl,by=c("Sample")) %>%
+  left_join(data_python,by=c("Sample")) %>%
   select("Sample","region","lake","yr","doy",everything()) 
-VA_expl = VA_expl %>%
+data_python = data_python %>%
   mutate("zmix/zmax"=zmix/zmax) %>%
   mutate("type_prof"=ifelse(`zmix/zmax`<0.9,"stratifie","polymictique")) %>%
   select(-c("pctdo","pctdo.cor")) %>% 
   full_join(summary_data_zoo[,c(1:2)],by=c("Sample")) %>% 
   rename("biomass_tot_zoo"="biomass_tot",
         "r.ugcld"  = "r.ugcld.(bottle.R)")
-VA_expl = VA_expl[c(1:69),]
+data_python = data_python[c(1:69),]
 
-# setdiff(summary_data_phyto$Sample,VA_expl$Sample)
+# setdiff(summary_data_phyto$Sample,data_python$Sample)
 
  # Categorisation genus => Creation dataset info_genus_zoo for summary of all informations ---------
 
@@ -110,42 +110,7 @@ info_genus_zoo = info_genus_zoo %>% right_join(plancton_strat, by="Genus") %>%
 ###########################################################################
 # Metrics richness --------------------------------------------------------------------
 ###########################################################################
-
-Shannon = function(data){
-  H = numeric(length(data$Sample))
-  
-  for (lake in 1:length(data$Sample)){
-    sum_H = 0  
-    
-    for (genus in 2:ncol(data)){  # Boucle sur all genus
-      biomass_i = data[lake, genus]  # Biomasse sp i
-      
-      if (biomass_i > 0){  # Eviter log(0)
-        p_i = biomass_i / summary_data_phyto$biomass_tot[lake]
-        sum_H = sum_H + (p_i * log(p_i))}
-    }
-    H[lake] = -sum_H
-  }
-  return(H)
-}
-
-Simpson = function(data){
-  D = numeric(length(data$Sample)) 
-  
-  for (lake in 1:length(data$Sample)){
-    sum_D = 0
-    
-    for (genus in 2:ncol(data)){  # Boucle sur all genus
-      biomass_i = data[lake, genus]  # Biomasse sp i
-      
-      if (biomass_i > 0){  # evite calcul + 0
-        p_i = biomass_i / summary_data_phyto$biomass_tot[lake]
-        sum_D = sum_D + p_i**2}
-    }
-    D[lake] = 1-sum_D # indide de Simpson complémentaire + intuitif
-  }
-  return(D)
-}
+source("/Users/renaudsrr/Desktop/STAGE_MTL/Scripts/fct_div.R")
 
 # + ajout nombre mixotrophe dans data_phyto2
 all_mixo = info_genus_zoo$Abbreviation[!is.na(info_genus_zoo$Abbreviation) & info_genus_zoo$Final_Nutrition_Strategy == "Mixotroph"]
@@ -233,16 +198,16 @@ ggplot(data = info_genus_zoo[1:74,], aes(x=Classic.group.name, fill=Final_Nutrit
 # export CSV --------------------------------------------------------------
 ###########################################################################
 
-VA_expl = VA_expl %>%
-  left_join(summary_data_phyto[,c(1,9)],by="Sample")
-VA_expl = VA_expl[match(summary_data_phyto$Sample, VA_expl$Sample), ]
+data_python = data_python %>%
+  left_join(summary_data_phyto[,c(1,4,6:9)],by="Sample")
+data_python = data_python[match(summary_data_phyto$Sample, data_python$Sample), ]
 
-write.csv(data_phyto, "new_csv/data_phyto.csv", row.names=F)
-write.csv(data_zoo, "new_csv/data_zoo.csv", row.names=F)
-write.csv(summary_data_phyto, "new_csv/summary_data_phyto.csv", row.names=F)
-write.csv(summary_data_zoo, "new_csv/summary_data_zoo.csv", row.names=F)
-write.csv(info_genus_zoo, "new_csv/info_genus_zoo.csv", row.names=F)
-write.csv(VA_expl,"new_csv/VA_expl.csv",row.names=F)
+write.csv(data_phyto, "new_csv/data_count/data_phyto_CARBBAS.csv", row.names=F)
+write.csv(data_zoo, "new_csv/data_count/data_zoo_CARBBAS.csv", row.names=F)
+write.csv(summary_data_phyto, "new_csv/summary_data/summary_data_phyto_CARBBAS.csv", row.names=F)
+write.csv(summary_data_zoo, "new_csv/summary_data/summary_data_zoo_CARBBAS.csv", row.names=F)
+write.csv(info_genus_zoo, "new_csv/info_genus.csv", row.names=F)
+write.csv(data_python,"new_csv/data_python/data_python_CARBBAS.csv",row.names=F)
 
 ###########################################################################
 # verification --------------------------------------------------------------
@@ -250,7 +215,7 @@ write.csv(VA_expl,"new_csv/VA_expl.csv",row.names=F)
 # relation entre preMixo et diversité
 
 plot(x = summary_data_phyto$prev_Mixo, y = summary_data_phyto$rich_genus)
-plot(x = VA_expl$prev_Mixo, y = summary_data_phyto$rich_genus,col="red")
+plot(x = data_python$prev_Mixo, y = summary_data_phyto$rich_genus,col="red")
 
 plot(x = summary_data_phyto$prev_Mixo, y = summary_data_phyto$H)
 plot(x = summary_data_phyto$prev_Mixo, y = summary_data_phyto$`1-D`)
@@ -276,6 +241,3 @@ aligned_lakes_env = ifelse(all_values %in% lakes_env, all_values, NA)
 df_diff_lakes = data.frame(lakes_env = aligned_lakes_env,
                            lakes_phyto = aligned_lakes_phyto, 
                            lakes_zoo = aligned_lakes_zoo)
-                           
-
-
